@@ -1,7 +1,7 @@
-use std::time::{Duration, Instant};
-use futures::stream::StreamExt;
+use crate::streamext::{RateLimitOptions, StreamRateLimitExt};
 use futures::stream;
-use crate::streamext::StreamExt2;
+use futures::stream::StreamExt;
+use std::time::{Duration, Instant};
 pub mod streamext;
 
 #[tokio::main]
@@ -11,10 +11,15 @@ async fn main() {
 
     let start = Instant::now();
     let stream = stream::iter(0..)
-        .then2(|st| async move {
-            tokio::time::sleep(Duration::from_secs_f64(GENERATE_ELEMENT_EVERY_SEC)).await;
-            st
-        })
+        .rate_limit(
+            RateLimitOptions {
+                interval: Duration::from_secs_f64(0.1),
+            },
+            |st| async move {
+                tokio::time::sleep(Duration::from_secs_f64(GENERATE_ELEMENT_EVERY_SEC)).await;
+                st
+            },
+        )
         .for_each(|el_no| async move {
             if el_no > 50 && el_no < 100 {
                 tokio::time::sleep(Duration::from_secs_f64(DELAY_FOR)).await;

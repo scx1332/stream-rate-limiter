@@ -1,5 +1,5 @@
-use futures::{StreamExt, TryStreamExt};
 use futures::stream;
+use futures::{StreamExt, TryStreamExt};
 use std::time::Duration;
 use tokio::time::{interval, Instant};
 

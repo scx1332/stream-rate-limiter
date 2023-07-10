@@ -11,7 +11,9 @@ async fn main() {
     const DELAY_FOR: f64 = 0.08;
 
     let start = Instant::now();
-    let stream = IntervalStream::new(interval(Duration::from_secs_f64(GENERATE_ELEMENT_EVERY_SEC)));
+    let stream = IntervalStream::new(interval(Duration::from_secs_f64(
+        GENERATE_ELEMENT_EVERY_SEC,
+    )));
     stream
         .enumerate()
         .for_each(|(el_no, el)| async move {

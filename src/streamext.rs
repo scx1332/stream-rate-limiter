@@ -8,26 +8,29 @@ use futures_core::task::{Context, Poll};
 #[cfg(feature = "sink")]
 use futures_sink::Sink;
 use pin_project_lite::pin_project;
+use std::time::Duration;
+
 
 pin_project! {
     /// Stream for the [`then`](super::StreamExt::then) method.
     #[must_use = "streams do nothing unless polled"]
-    pub struct Then<St, Fut, F> {
+    pub struct RateLimit<St, Fut, F> {
         #[pin]
         stream: St,
         #[pin]
         future: Option<Fut>,
+        options: RateLimitOptions,
         f: F,
     }
 }
 
-impl<St, Fut, F> fmt::Debug for Then<St, Fut, F>
+impl<St, Fut, F> fmt::Debug for RateLimit<St, Fut, F>
 where
     St: fmt::Debug,
     Fut: fmt::Debug,
 {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        f.debug_struct("Then")
+        f.debug_struct("RateLimit")
             .field("stream", &self.stream)
             .field("future", &self.future)
             .finish()
@@ -70,23 +73,29 @@ macro_rules! delegate_access_inner {
     }
 }
 
-impl<St, Fut, F> Then<St, Fut, F>
+#[derive(Debug, Clone)]
+pub struct RateLimitOptions {
+    pub interval: Duration,
+}
+
+impl<St, Fut, F> RateLimit<St, Fut, F>
 where
     St: Stream,
     F: FnMut(St::Item) -> Fut,
 {
-    pub fn new(stream: St, f: F) -> Self {
+    pub fn new(stream: St, opt: RateLimitOptions, f: F) -> Self {
         Self {
             stream,
             future: None,
             f,
+            options: opt,
         }
     }
 
     delegate_access_inner!(stream, St, ());
 }
 
-impl<St, Fut, F> FusedStream for Then<St, Fut, F>
+impl<St, Fut, F> FusedStream for RateLimit<St, Fut, F>
 where
     St: FusedStream,
     F: FnMut(St::Item) -> Fut,
@@ -97,7 +106,7 @@ where
     }
 }
 
-impl<St, Fut, F> Stream for Then<St, Fut, F>
+impl<St, Fut, F> Stream for RateLimit<St, Fut, F>
 where
     St: Stream,
     F: FnMut(St::Item) -> Fut,
@@ -135,7 +144,7 @@ where
 
 // Forwarding impl of Sink from the underlying stream
 #[cfg(feature = "sink")]
-impl<S, Fut, F, Item> Sink<Item> for Then<S, Fut, F>
+impl<S, Fut, F, Item> Sink<Item> for RateLimit<S, Fut, F>
 where
     S: Sink<Item>,
 {
@@ -143,17 +152,29 @@ where
 
     delegate_sink!(stream, Item);
 }
-impl<T: ?Sized> StreamExt2 for T where T: Stream {}
 
-pub trait StreamExt2: Stream {
-    fn then2<Fut, F>(self, f: F) -> Then<Self, Fut, F>
+impl<T: ?Sized> StreamRateLimitExt for T where T: Stream {}
+
+pub trait StreamRateLimitExt: Stream {
+    fn rate_limit<Fut, F>(self, opt: RateLimitOptions, f: F) -> RateLimit<Self, Fut, F>
     where
         F: FnMut(Self::Item) -> Fut,
         Fut: Future,
         Self: Sized,
     {
-        assert_stream::<Fut::Output, _>(Then::new(self, f))
+        assert_stream::<Fut::Output, _>(RateLimit::new(self, opt, f))
     }
+    /*fn rate_limit2<Fut, F>(self, opt: RateLimitOptions) -> RateLimit<Self, Fut, F>
+        where
+            F: FnMut(Self::Item) -> Fut,
+            Fut: Future,
+            Self: Sized,
+    {
+        let f = |x: Self::Item| {
+            async move { x };
+        };
+        self.rate_limit(opt, f)
+    }*/
 }
 pub(crate) fn assert_stream<T, S>(stream: S) -> S
 where

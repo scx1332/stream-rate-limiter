@@ -11,13 +11,9 @@ async fn main() {
 
     let start = Instant::now();
     let stream = stream::iter(0..)
-        .rate_limit(
+        .rate_limit2(
             RateLimitOptions {
-                interval: Duration::from_secs_f64(0.1),
-            },
-            |st| async move {
-                tokio::time::sleep(Duration::from_secs_f64(GENERATE_ELEMENT_EVERY_SEC)).await;
-                st
+                interval: Some(Duration::from_secs_f64(GENERATE_ELEMENT_EVERY_SEC)),
             },
         )
         .for_each(|el_no| async move {

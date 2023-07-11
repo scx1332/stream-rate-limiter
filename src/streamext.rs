@@ -9,6 +9,7 @@ use futures_core::task::{Context, Poll};
 use futures_sink::Sink;
 use pin_project_lite::pin_project;
 use std::time::Duration;
+use tokio::time::Sleep;
 
 
 pin_project! {
@@ -22,6 +23,24 @@ pin_project! {
         options: RateLimitOptions,
         f: F,
     }
+}
+
+pin_project! {
+    #[must_use = "streams do nothing unless polled"]
+    pub struct RateLimit2<St>
+    where St: Stream,
+    {
+        #[pin]
+        stream: St,
+        options: RateLimitOptions,
+        #[pin]
+        future: Option<Sleep>,
+        item: Option<St::Item>,
+        item_no: u64,
+        first_el_time: std::time::Instant,
+        stream_delay: f64,
+
+     }
 }
 
 impl<St, Fut, F> fmt::Debug for RateLimit<St, Fut, F>
@@ -75,7 +94,7 @@ macro_rules! delegate_access_inner {
 
 #[derive(Debug, Clone)]
 pub struct RateLimitOptions {
-    pub interval: Duration,
+    pub interval: Option<Duration>,
 }
 
 impl<St, Fut, F> RateLimit<St, Fut, F>
@@ -89,6 +108,25 @@ where
             future: None,
             f,
             options: opt,
+        }
+    }
+
+    delegate_access_inner!(stream, St, ());
+}
+
+impl<St> RateLimit2<St>
+    where
+        St: Stream
+{
+    pub fn new(stream: St, opt: RateLimitOptions) -> Self {
+        Self {
+            stream,
+            options: opt,
+            item_no: 0,
+            future: None,
+            first_el_time: std::time::Instant::now(),
+            item: None,
+            stream_delay: 0.0,
         }
     }
 
@@ -142,6 +180,74 @@ where
     }
 }
 
+impl<St> Stream for RateLimit2<St>
+    where
+        St: Stream,
+{
+    type Item = St::Item;
+
+    fn poll_next(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
+        let mut this = self.project();
+
+        Poll::Ready(loop {
+            if let Some(fut) = this.future.as_mut().as_pin_mut() {
+                ready!(fut.poll(cx));
+                this.future.set(None);
+                break Some(this.item.take().unwrap());
+            } else if let Some(item) = ready!(this.stream.as_mut().poll_next(cx)) {
+
+                if *this.item_no == 0 {
+                    *this.item_no += 1;
+                    *this.first_el_time = std::time::Instant::now();
+                    break Some(item);
+                }
+                if let Some(interval) = this.options.interval {
+                    const MAX_SLIPPAGE_INTERVALS: f64 = 10.0;
+                    const MAX_SLIPPAGE_CONST: f64 = 0.02;
+
+                    let target_time_point =
+                        interval.as_secs_f64() * (*this.item_no) as f64 + *this.stream_delay;
+                    *this.item_no += 1;
+
+                    let elapsed = this.first_el_time.elapsed();
+                    let delta = target_time_point - elapsed.as_secs_f64();
+                    let wait_time_seconds = if delta > 0.0 { delta } else { 0.0 };
+                    if delta < -(MAX_SLIPPAGE_INTERVALS * interval.as_secs_f64() + MAX_SLIPPAGE_CONST) {
+                        // stream is falling behind, add the permanent delay
+                        *this.stream_delay += (-delta);
+                        println!(
+                        "Stream is falling behind, current delay {}s",
+                        this.stream_delay);
+
+                    }
+                    if wait_time_seconds > 0.001 {
+                        this.future.set(Some(tokio::time::sleep(Duration::from_secs_f64(wait_time_seconds))));
+                        *this.item = Some(item);
+                    } else {
+                        break Some(item);
+                    }
+                } else {
+                    break Some(item);
+                }
+
+            } else {
+                break None;
+            }
+        })
+    }
+
+    fn size_hint(&self) -> (usize, Option<usize>) {
+        let future_len = usize::from(self.future.is_some());
+        let (lower, upper) = self.stream.size_hint();
+        let lower = lower.saturating_add(future_len);
+        let upper = match upper {
+            Some(x) => x.checked_add(future_len),
+            None => None,
+        };
+        (lower, upper)
+    }
+}
+
 // Forwarding impl of Sink from the underlying stream
 #[cfg(feature = "sink")]
 impl<S, Fut, F, Item> Sink<Item> for RateLimit<S, Fut, F>
@@ -164,17 +270,12 @@ pub trait StreamRateLimitExt: Stream {
     {
         assert_stream::<Fut::Output, _>(RateLimit::new(self, opt, f))
     }
-    /*fn rate_limit2<Fut, F>(self, opt: RateLimitOptions) -> RateLimit<Self, Fut, F>
+    fn rate_limit2(self, opt: RateLimitOptions) -> RateLimit2<Self>
         where
-            F: FnMut(Self::Item) -> Fut,
-            Fut: Future,
             Self: Sized,
     {
-        let f = |x: Self::Item| {
-            async move { x };
-        };
-        self.rate_limit(opt, f)
-    }*/
+        assert_stream::<Self::Item, _>(RateLimit2::new(self, opt))
+    }
 }
 pub(crate) fn assert_stream<T, S>(stream: S) -> S
 where

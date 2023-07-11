@@ -1,3 +1,5 @@
+use crate::options::RateLimitOptions;
+use crate::options::StreamBehavior;
 use core::pin::Pin;
 use futures_core::future::Future;
 use futures_core::ready;
@@ -8,7 +10,6 @@ use futures_sink::Sink;
 use pin_project_lite::pin_project;
 use std::time::Duration;
 use tokio::time::Sleep;
-
 
 pin_project! {
     #[must_use = "streams do nothing unless polled"]
@@ -26,7 +27,6 @@ pin_project! {
         stream_delay: f64,
      }
 }
-
 
 macro_rules! delegate_access_inner {
     ($field:ident, $inner:ty, ($($ind:tt)*)) => {
@@ -64,28 +64,9 @@ macro_rules! delegate_access_inner {
     }
 }
 
-pub enum StreamBehavior {
-    Continue,
-    Delay(f64),
-    Stop,
-}
-
-#[derive(Clone, Default)]
-pub struct RateLimitOptions {
-    ///targeted interval between items
-    pub interval: Option<Duration>,
-
-    ///none for default slippage (10 times interval + 0.02 sec)
-    ///f64::max_value() for no slippage at all (stream always wants to catch up after delay)
-    pub allowed_slippage_sec: Option<f64>,
-
-    ///return true if you want
-    pub on_stream_delayed: Option<fn(f64, f64) -> StreamBehavior>,
-}
-
 impl<St> RateLimit2<St>
-    where
-        St: Stream
+where
+    St: Stream,
 {
     pub fn new(stream: St, opt: RateLimitOptions) -> Self {
         Self {
@@ -112,8 +93,8 @@ where
 }
 
 impl<St> Stream for RateLimit2<St>
-    where
-        St: Stream,
+where
+    St: Stream,
 {
     type Item = St::Item;
 
@@ -136,7 +117,7 @@ impl<St> Stream for RateLimit2<St>
                     const MAX_SLIPPAGE_CONST: f64 = 0.02;
 
                     let allowed_slippage_secs = this.options.allowed_slippage_sec.unwrap_or(
-                        MAX_SLIPPAGE_INTERVALS * interval.as_secs_f64() + MAX_SLIPPAGE_CONST
+                        MAX_SLIPPAGE_INTERVALS * interval.as_secs_f64() + MAX_SLIPPAGE_CONST,
                     );
 
                     let target_time_point =
@@ -150,7 +131,10 @@ impl<St> Stream for RateLimit2<St>
                         let current_delay = -delta;
                         // stream is falling behind, add the permanent delay
                         if let Some(on_stream_delayed) = this.options.on_stream_delayed {
-                            match on_stream_delayed(current_delay, *this.stream_delay + current_delay) {
+                            match on_stream_delayed(
+                                current_delay,
+                                *this.stream_delay + current_delay,
+                            ) {
                                 StreamBehavior::Continue => {}
                                 StreamBehavior::Delay(delay) => {
                                     *this.stream_delay += delay;
@@ -162,7 +146,10 @@ impl<St> Stream for RateLimit2<St>
                         }
                     }
                     if wait_time_seconds > 0.001 {
-                        this.future.set(Some(tokio::time::sleep(Duration::from_secs_f64(wait_time_seconds))));
+                        this.future
+                            .set(Some(tokio::time::sleep(Duration::from_secs_f64(
+                                wait_time_seconds,
+                            ))));
                         *this.item = Some(item);
                     } else {
                         break Some(item);
@@ -170,7 +157,6 @@ impl<St> Stream for RateLimit2<St>
                 } else {
                     break Some(item);
                 }
-
             } else {
                 break None;
             }
@@ -204,8 +190,8 @@ impl<T: ?Sized> StreamRateLimitExt for T where T: Stream {}
 
 pub trait StreamRateLimitExt: Stream {
     fn rate_limit2(self, opt: RateLimitOptions) -> RateLimit2<Self>
-        where
-            Self: Sized,
+    where
+        Self: Sized,
     {
         assert_stream::<Self::Item, _>(RateLimit2::new(self, opt))
     }

@@ -1,8 +1,10 @@
-use crate::streamext::{RateLimitOptions, StreamBehavior, StreamRateLimitExt};
+use crate::options::{RateLimitOptions, StreamBehavior};
+use crate::streamext::StreamRateLimitExt;
 use futures::stream;
 use futures::stream::StreamExt;
 use std::time::{Duration, Instant};
 
+mod options;
 pub mod streamext;
 
 #[tokio::main]
@@ -12,19 +14,17 @@ async fn main() {
 
     let start = Instant::now();
     let _stream = stream::iter(0..)
-        .rate_limit2(
-            RateLimitOptions {
-                interval: Some(Duration::from_secs_f64(GENERATE_ELEMENT_EVERY_SEC)),
-                allowed_slippage_sec: Some(1.0),
-                on_stream_delayed: Some(|current_delay, total_delay| {
-                    println!("Stream is delayed {total_delay:.3}s !!");
-                    if current_delay > 1.0 {
-                        return StreamBehavior::Delay(current_delay / 3.0);
-                    }
-                    return StreamBehavior::Continue;
-                })
-            }
-        )
+        .rate_limit2(RateLimitOptions {
+            interval: Some(Duration::from_secs_f64(GENERATE_ELEMENT_EVERY_SEC)),
+            allowed_slippage_sec: Some(1.0),
+            on_stream_delayed: Some(|current_delay, total_delay| {
+                println!("Stream is delayed {total_delay:.3}s !!");
+                if current_delay > 1.0 {
+                    return StreamBehavior::Delay(current_delay / 3.0);
+                }
+                return StreamBehavior::Continue;
+            }),
+        })
         .for_each(|el_no| async move {
             if el_no > 50 && el_no < 100 {
                 tokio::time::sleep(Duration::from_secs_f64(DELAY_FOR)).await;

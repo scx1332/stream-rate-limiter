@@ -26,9 +26,36 @@ per second fast. You can also react and close the stream if delay is too big.
 x axis is element number, y axis is time, el number 50 is simulated to stuck for 3 seconds)
 
 When you want to delay stream after hiccup 
+```rust
+RateLimitOptions {
+    interval: Some(Duration::from_secs_f64(0.1)),
+    allowed_slippage_sec: Some(0.5),
+    on_stream_delayed: |current_delay, total_delay| {
+        StreamBehavior::Continue
+    },
+}
+```
 ![alt text](https://github.com/scx1332/stream-rate-limiter/blob/main/docs/delay.png?raw=true)
+```rust
+RateLimitOptions {
+    interval: Some(Duration::from_secs_f64(0.1)),
+    allowed_slippage_sec: Some(0.5),
+    on_stream_delayed: |current_delay, total_delay| {
+        StreamBehavior::Delay(current_delay)
+    },
+}
+```
 
 When you want to allow stream to catchup after hiccup (continue option):
+```rust
+RateLimitOptions {
+    interval: Some(Duration::from_secs_f64(0.1)),
+    allowed_slippage_sec: Some(0.5),
+    on_stream_delayed: |current_delay, total_delay| {
+        StreamBehavior::Continue
+    },
+}
+```
 ![alt text](https://github.com/scx1332/stream-rate-limiter/blob/main/docs/continue.png?raw=true)
 
 

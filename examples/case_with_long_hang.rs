@@ -14,12 +14,10 @@ async fn main() {
     let start = Instant::now();
     let _stream = stream::iter(0..100)
         .rate_limit(RateLimitOptions {
-            interval: Some(Duration::from_secs_f64(GENERATE_ELEMENT_EVERY_SEC)),
+            interval: Some(Duration::from_secs_f64(0.1)),
             allowed_slippage_sec: Some(0.5),
             on_stream_delayed: |current_delay, total_delay| {
-                let delay_for = current_delay;
-                //println!("Stream is delayed {:.3}s !!", total_delay + delay_for);
-                StreamBehavior::Continue
+                StreamBehavior::Delay(current_delay)
             },
         })
         .for_each(|el_no| async move {

@@ -1,4 +1,4 @@
-use futures::{StreamExt};
+use futures::StreamExt;
 use std::time::Duration;
 use tokio::time::{interval, Instant};
 use tokio_stream::wrappers::IntervalStream;

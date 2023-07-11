@@ -8,7 +8,9 @@ pub enum StreamBehavior {
 
 #[derive(Clone, Default)]
 pub struct RateLimitOptions<G>
-where G: FnMut(f64, f64) -> StreamBehavior {
+where
+    G: FnMut(f64, f64) -> StreamBehavior,
+{
     ///targeted interval between items
     pub interval: Option<Duration>,
 
@@ -21,8 +23,9 @@ where G: FnMut(f64, f64) -> StreamBehavior {
 }
 
 impl<G> RateLimitOptions<G>
-where G: FnMut(f64, f64) -> StreamBehavior{
-
+where
+    G: FnMut(f64, f64) -> StreamBehavior,
+{
     pub fn new(
         interval: Option<Duration>,
         allowed_slippage_sec: Option<f64>,
@@ -34,5 +37,4 @@ where G: FnMut(f64, f64) -> StreamBehavior{
             on_stream_delayed,
         }
     }
-
 }

@@ -133,17 +133,14 @@ where
                     let wait_time_seconds = if delta > 0.0 { delta } else { 0.0 };
                     if delta < -(allowed_slippage_secs) {
                         let current_delay = -delta;
-                            match (this.options.on_stream_delayed)(
-                                current_delay,
-                                *this.stream_delay,
-                            ) {
-                                StreamBehavior::Continue => {}
-                                StreamBehavior::Delay(delay) => {
-                                    // stream is falling behind, add the permanent delay
-                                    *this.stream_delay += delay;
-                                }
-                                StreamBehavior::Stop => break None,
+                        match (this.options.on_stream_delayed)(current_delay, *this.stream_delay) {
+                            StreamBehavior::Continue => {}
+                            StreamBehavior::Delay(delay) => {
+                                // stream is falling behind, add the permanent delay
+                                *this.stream_delay += delay;
                             }
+                            StreamBehavior::Stop => break None,
+                        }
                     }
                     if wait_time_seconds > 0.001 {
                         this.future
@@ -186,9 +183,12 @@ where
     delegate_sink!(stream, Item);
 }
 
-impl<T: ?Sized, G> StreamRateLimitExt<G> for T where T: Stream,
-G: FnMut(f64, f64) -> StreamBehavior
-{}
+impl<T: ?Sized, G> StreamRateLimitExt<G> for T
+where
+    T: Stream,
+    G: FnMut(f64, f64) -> StreamBehavior,
+{
+}
 
 pub trait StreamRateLimitExt<G>: Stream {
     fn rate_limit(self, opt: RateLimitOptions<G>) -> RateLimit<Self, G>

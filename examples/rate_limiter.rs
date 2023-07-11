@@ -1,5 +1,5 @@
 use futures::stream;
-use futures::{StreamExt};
+use futures::StreamExt;
 use std::time::{Duration, Instant};
 use stream_rate_limiter::{RateLimitOptions, StreamBehavior, StreamRateLimitExt};
 

@@ -1,22 +1,18 @@
 #[cfg(test)]
 mod tests {
-    use std::cell::RefCell;
-    use std::rc::Rc;
-    use super::*;
-    use futures::executor::block_on;
     use futures::stream;
     use futures::stream::StreamExt;
+    use std::cell::RefCell;
+    use std::rc::Rc;
     use std::time::Duration;
     use stream_rate_limiter::*;
 
     #[tokio::test]
     async fn it_works() {
         let count = stream::iter(0..10)
-            .rate_limit(RateLimitOptions::new(
-                None,
-                None,
-                |delta, total_delay| StreamBehavior::Continue,
-            ))
+            .rate_limit(RateLimitOptions::new(None, None, |_, _| {
+                StreamBehavior::Continue
+            }))
             .count()
             .await;
         assert_eq!(count, 10);
@@ -28,7 +24,7 @@ mod tests {
             .rate_limit(RateLimitOptions::new(
                 Some(Duration::from_secs_f64(0.01)),
                 None,
-                |delta, total_delay| StreamBehavior::Continue,
+                |_, _| StreamBehavior::Continue,
             ))
             .count()
             .await;
@@ -43,7 +39,7 @@ mod tests {
                 Some(Duration::from_secs_f64(0.01)),
                 None,
                 |delta, stream_delay| {
-                    total_delay.replace_with(|&mut x| stream_delay + delta);
+                    total_delay.replace_with(|_| stream_delay + delta);
                     println!("Stream is delayed {:.3}s !!", stream_delay + delta);
                     StreamBehavior::Delay(delta)
                 },
@@ -64,8 +60,8 @@ mod tests {
             .rate_limit(RateLimitOptions::new(
                 Some(Duration::from_secs_f64(0.01)),
                 None,
-                |delta, stream_delay| {
-                    total_delay.replace_with(|&mut x| stream_delay);
+                |_delta, stream_delay| {
+                    total_delay.replace_with(|_| stream_delay);
                     println!("Stream is delayed {stream_delay:.3}s !!");
                     StreamBehavior::Continue
                 },
@@ -86,7 +82,7 @@ mod tests {
                 Some(Duration::from_secs_f64(0.01)),
                 Some(10.0),
                 |delta, stream_delay| {
-                    total_delay.replace_with(|&mut x| stream_delay + delta);
+                    total_delay.replace_with(|_| stream_delay + delta);
                     println!("Stream is delayed {:.3}s !!", stream_delay + delta);
                     StreamBehavior::Delay(delta)
                 },

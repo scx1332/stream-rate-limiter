@@ -109,14 +109,24 @@ where
             if let Some(fut) = this.future.as_mut().as_pin_mut() {
                 ready!(fut.poll(cx));
                 this.future.set(None);
+                //item was set together with future, so we can safely return it
                 break Some(this.item.take().unwrap());
             } else if let Some(item) = ready!(this.stream.as_mut().poll_next(cx)) {
                 if *this.item_no == 0 {
                     *this.item_no += 1;
+                    //start measuring time, when first element arrives
                     *this.first_el_time = std::time::Instant::now();
+                    //return immediately on the first element
                     break Some(item);
                 }
-                if let Some(interval) = this.options.interval {
+                //if no interval is set, use min_interval instead
+                let interval = if this.options.interval.is_none() {
+                    this.options.min_interval
+                } else {
+                    this.options.interval
+                };
+
+                if let Some(interval) = interval {
                     const MAX_SLIPPAGE_INTERVALS: f64 = 10.0;
                     const MAX_SLIPPAGE_CONST: f64 = 0.02;
 
@@ -130,7 +140,7 @@ where
 
                     let elapsed = this.first_el_time.elapsed();
                     let delta = target_time_point - elapsed.as_secs_f64();
-                    let wait_time_seconds = if delta > 0.0 { delta } else { 0.0 };
+                    let mut wait_time_seconds = if delta > 0.0 { delta } else { 0.0 };
                     if delta < -(allowed_slippage_secs) {
                         let current_delay = -delta;
                         match (this.options.on_stream_delayed)(current_delay, *this.stream_delay) {
@@ -142,19 +152,33 @@ where
                             StreamBehavior::Stop => break None,
                         }
                     }
-                    if wait_time_seconds > 0.001 {
+                    //if min interval is set, make sure we wait at least as long as min interval
+                    if let Some(min_interval) = this.options.min_interval {
+                        if min_interval.as_secs_f64() > wait_time_seconds {
+                            wait_time_seconds = min_interval.as_secs_f64();
+                        }
+                    }
+                    if wait_time_seconds > 0.001 || this.options.min_interval.is_some() {
+                        // if min interval is provided wait always, even if it's zero
+
                         this.future
                             .set(Some(tokio::time::sleep(Duration::from_secs_f64(
                                 wait_time_seconds,
                             ))));
+                        //note that we are setting future here, so we can poll it,
+                        //additionally we are setting item here, so we can return it when timeout is ready
                         *this.item = Some(item);
                     } else {
+                        // if no min interval is provided, wait only if wait time bigger than 1ms
+                        // otherwise return immediately to help catch up stream
                         break Some(item);
                     }
                 } else {
+                    //if no interval is set, return immediately (very low overhead)
                     break Some(item);
                 }
             } else {
+                //handle end of stream case
                 break None;
             }
         })

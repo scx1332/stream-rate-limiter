@@ -8,21 +8,19 @@ extern crate stream_rate_limiter;
 ///Example using tokio interval, for most cases should be enough as good enough interval generator
 #[tokio::main]
 async fn main() {
-    const GENERATE_ELEMENT_EVERY_SEC: f64 = 0.1;
-    const DELAY_FOR: f64 = 3.0;
-
     let start = Instant::now();
     let _stream = stream::iter(0..100)
         .rate_limit(RateLimitOptions {
+            min_interval: Some(Duration::from_secs_f64(0.05)),
             interval: Some(Duration::from_secs_f64(0.1)),
             allowed_slippage_sec: Some(0.5),
-            on_stream_delayed: |current_delay, total_delay| {
+            on_stream_delayed: |current_delay, _total_delay| {
                 StreamBehavior::Delay(current_delay)
             },
         })
         .for_each(|el_no| async move {
             if el_no == 50 {
-                tokio::time::sleep(Duration::from_secs_f64(DELAY_FOR)).await;
+                tokio::time::sleep(Duration::from_secs_f64(3.0)).await;
             }
             //note that after issue is solved, drift goes back to normal
             //println!(

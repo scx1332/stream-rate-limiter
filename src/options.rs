@@ -17,6 +17,9 @@ where
     ///targeted interval between items
     pub interval: Option<Duration>,
 
+    ///minimum interval between items
+    pub min_interval: Option<Duration>,
+
     ///none for default slippage (10 times interval + 0.02 sec)
     ///f64::max_value() for no slippage at all (stream always wants to catch up after delay)
     ///if stream is currently delayed more than this then on_stream_delayed is called
@@ -35,11 +38,13 @@ where
 {
     pub fn new(
         interval: Option<Duration>,
+        min_interval: Option<Duration>,
         allowed_slippage_sec: Option<f64>,
         on_stream_delayed: G,
     ) -> Self {
         Self {
             interval,
+            min_interval,
             allowed_slippage_sec,
             on_stream_delayed,
         }

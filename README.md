@@ -23,7 +23,7 @@ per second fast. You can also react and close the stream if delay is too big.
 
 ## Case study
 
-x axis is element number, y axis is time, el number 50 is simulated to stuck for 3 seconds)
+x axis is element number, y axis is time, element number 40 is simulated to stuck for 2 seconds)
 
 When you want to delay stream after hiccup 
 ```rust

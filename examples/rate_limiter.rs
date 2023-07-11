@@ -2,6 +2,9 @@ use futures::stream;
 use futures::{StreamExt, TryStreamExt};
 use std::time::Duration;
 use tokio::time::{interval, Instant};
+use stream_rate_limiter::{RateLimitOptions, StreamBehavior, StreamRateLimitExt};
+
+extern crate stream_rate_limiter;
 
 ///Example using tokio interval, for most cases should be enough as good enough interval generator
 #[tokio::main]
@@ -10,10 +13,17 @@ async fn main() {
     const DELAY_FOR: f64 = 0.08;
 
     let start = Instant::now();
-    let stream = stream::iter(0..)
-        .then2(|st| async move {
-            tokio::time::sleep(Duration::from_secs_f64(GENERATE_ELEMENT_EVERY_SEC)).await;
-            Some(st)
+    let _stream = stream::iter(0..)
+        .rate_limit2(RateLimitOptions {
+            interval: Some(Duration::from_secs_f64(GENERATE_ELEMENT_EVERY_SEC)),
+            allowed_slippage_sec: Some(1.0),
+            on_stream_delayed: Some(|current_delay, total_delay| {
+                println!("Stream is delayed {total_delay:.3}s !!");
+                if current_delay > 1.0 {
+                    return StreamBehavior::Delay(current_delay / 3.0);
+                }
+                return StreamBehavior::Continue;
+            }),
         })
         .for_each(|el_no| async move {
             if el_no > 50 && el_no < 100 {

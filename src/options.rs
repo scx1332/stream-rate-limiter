@@ -18,3 +18,17 @@ pub struct RateLimitOptions {
     ///return true if you want
     pub on_stream_delayed: Option<fn(f64, f64) -> StreamBehavior>,
 }
+
+impl RateLimitOptions {
+    pub fn new(
+        interval: Option<Duration>,
+        allowed_slippage_sec: Option<f64>,
+        on_stream_delayed: Option<fn(f64, f64) -> StreamBehavior>,
+    ) -> Self {
+        Self {
+            interval,
+            allowed_slippage_sec,
+            on_stream_delayed,
+        }
+    }
+}

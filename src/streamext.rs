@@ -13,7 +13,7 @@ use tokio::time::Sleep;
 
 pin_project! {
     #[must_use = "streams do nothing unless polled"]
-    pub struct RateLimit2<St>
+    pub struct RateLimit<St>
     where St: Stream,
     {
         #[pin]
@@ -64,7 +64,7 @@ macro_rules! delegate_access_inner {
     }
 }
 
-impl<St> RateLimit2<St>
+impl<St> RateLimit<St>
 where
     St: Stream,
 {
@@ -83,7 +83,7 @@ where
     delegate_access_inner!(stream, St, ());
 }
 
-impl<St> FusedStream for RateLimit2<St>
+impl<St> FusedStream for RateLimit<St>
 where
     St: FusedStream,
 {
@@ -92,7 +92,7 @@ where
     }
 }
 
-impl<St> Stream for RateLimit2<St>
+impl<St> Stream for RateLimit<St>
 where
     St: Stream,
 {
@@ -189,11 +189,11 @@ where
 impl<T: ?Sized> StreamRateLimitExt for T where T: Stream {}
 
 pub trait StreamRateLimitExt: Stream {
-    fn rate_limit2(self, opt: RateLimitOptions) -> RateLimit2<Self>
+    fn rate_limit(self, opt: RateLimitOptions) -> RateLimit<Self>
     where
         Self: Sized,
     {
-        assert_stream::<Self::Item, _>(RateLimit2::new(self, opt))
+        assert_stream::<Self::Item, _>(RateLimit::new(self, opt))
     }
 }
 pub(crate) fn assert_stream<T, S>(stream: S) -> S

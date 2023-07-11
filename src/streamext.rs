@@ -13,12 +13,13 @@ use tokio::time::Sleep;
 
 pin_project! {
     #[must_use = "streams do nothing unless polled"]
-    pub struct RateLimit<St>
+    pub struct RateLimit<St, G>
     where St: Stream,
+    G: FnMut(f64, f64) -> StreamBehavior
     {
         #[pin]
         stream: St,
-        options: RateLimitOptions,
+        options: RateLimitOptions<G>,
         #[pin]
         future: Option<Sleep>,
         item: Option<St::Item>,
@@ -64,11 +65,12 @@ macro_rules! delegate_access_inner {
     }
 }
 
-impl<St> RateLimit<St>
+impl<St, G> RateLimit<St, G>
 where
     St: Stream,
+    G: FnMut(f64, f64) -> StreamBehavior,
 {
-    pub fn new(stream: St, opt: RateLimitOptions) -> Self {
+    pub fn new(stream: St, opt: RateLimitOptions<G>) -> Self {
         Self {
             stream,
             options: opt,
@@ -83,18 +85,20 @@ where
     delegate_access_inner!(stream, St, ());
 }
 
-impl<St> FusedStream for RateLimit<St>
+impl<St, G> FusedStream for RateLimit<St, G>
 where
     St: FusedStream,
+    G: FnMut(f64, f64) -> StreamBehavior,
 {
     fn is_terminated(&self) -> bool {
         self.future.is_none() && self.stream.is_terminated()
     }
 }
 
-impl<St> Stream for RateLimit<St>
+impl<St, G> Stream for RateLimit<St, G>
 where
     St: Stream,
+    G: FnMut(f64, f64) -> StreamBehavior,
 {
     type Item = St::Item;
 
@@ -129,21 +133,17 @@ where
                     let wait_time_seconds = if delta > 0.0 { delta } else { 0.0 };
                     if delta < -(allowed_slippage_secs) {
                         let current_delay = -delta;
-                        // stream is falling behind, add the permanent delay
-                        if let Some(on_stream_delayed) = this.options.on_stream_delayed {
-                            match on_stream_delayed(
+                            match (this.options.on_stream_delayed)(
                                 current_delay,
-                                *this.stream_delay + current_delay,
+                                *this.stream_delay,
                             ) {
                                 StreamBehavior::Continue => {}
                                 StreamBehavior::Delay(delay) => {
+                                    // stream is falling behind, add the permanent delay
                                     *this.stream_delay += delay;
                                 }
                                 StreamBehavior::Stop => break None,
                             }
-                        } else {
-                            *this.stream_delay += current_delay;
-                        }
                     }
                     if wait_time_seconds > 0.001 {
                         this.future
@@ -186,12 +186,15 @@ where
     delegate_sink!(stream, Item);
 }
 
-impl<T: ?Sized> StreamRateLimitExt for T where T: Stream {}
+impl<T: ?Sized, G> StreamRateLimitExt<G> for T where T: Stream,
+G: FnMut(f64, f64) -> StreamBehavior
+{}
 
-pub trait StreamRateLimitExt: Stream {
-    fn rate_limit(self, opt: RateLimitOptions) -> RateLimit<Self>
+pub trait StreamRateLimitExt<G>: Stream {
+    fn rate_limit(self, opt: RateLimitOptions<G>) -> RateLimit<Self, G>
     where
         Self: Sized,
+        G: FnMut(f64, f64) -> StreamBehavior,
     {
         assert_stream::<Self::Item, _>(RateLimit::new(self, opt))
     }

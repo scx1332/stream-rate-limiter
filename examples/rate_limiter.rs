@@ -1,8 +1,7 @@
 use futures::stream;
-use futures::{StreamExt, TryStreamExt};
-use std::time::Duration;
+use futures::{StreamExt};
+use std::time::{Duration, Instant};
 use stream_rate_limiter::{RateLimitOptions, StreamBehavior, StreamRateLimitExt};
-use tokio::time::{interval, Instant};
 
 extern crate stream_rate_limiter;
 
@@ -17,13 +16,13 @@ async fn main() {
         .rate_limit(RateLimitOptions {
             interval: Some(Duration::from_secs_f64(GENERATE_ELEMENT_EVERY_SEC)),
             allowed_slippage_sec: Some(1.0),
-            on_stream_delayed: Some(|current_delay, total_delay| {
+            on_stream_delayed: |current_delay, total_delay| {
                 println!("Stream is delayed {total_delay:.3}s !!");
                 if current_delay > 1.0 {
                     return StreamBehavior::Delay(current_delay / 3.0);
                 }
-                return StreamBehavior::Continue;
-            }),
+                StreamBehavior::Continue
+            },
         })
         .for_each(|el_no| async move {
             if el_no > 50 && el_no < 100 {

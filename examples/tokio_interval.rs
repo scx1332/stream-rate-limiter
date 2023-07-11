@@ -1,5 +1,4 @@
-use futures::{StreamExt, TryStreamExt};
-use futures_core::stream;
+use futures::{StreamExt};
 use std::time::Duration;
 use tokio::time::{interval, Instant};
 use tokio_stream::wrappers::IntervalStream;
@@ -16,7 +15,7 @@ async fn main() {
     )));
     stream
         .enumerate()
-        .for_each(|(el_no, el)| async move {
+        .for_each(|(el_no, _el)| async move {
             if el_no > 50 && el_no < 100 {
                 tokio::time::sleep(Duration::from_secs_f64(DELAY_FOR)).await;
             }

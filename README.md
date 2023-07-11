@@ -21,8 +21,15 @@ Thus after your stream is stuck for like couple of seconds your event won't be f
 per second fast. You can also react and close the stream if delay is too big.
 
 
+## Case study
 
-![alt text](https://github.com/[username]/[reponame]/blob/[branch]/image.jpg?raw=true)
+x axis is element number, y axis is time, el number 50 is simulated to stuck for 3 seconds)
+
+When you want to delay stream after hiccup 
+![alt text](https://github.com/scx1332/stream-rate-limiter/blob/main/docs/delay.png?raw=true)
+
+When you want to allow stream to catchup after hiccup (continue option):
+![alt text](https://github.com/scx1332/stream-rate-limiter/blob/main/docs/continue.png?raw=true)
 
 
 

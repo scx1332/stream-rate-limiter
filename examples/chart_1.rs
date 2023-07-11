@@ -11,7 +11,7 @@ async fn main() {
     let start = Instant::now();
     let _stream = stream::iter(0..100)
         .rate_limit(RateLimitOptions {
-            min_interval: Some(Duration::from_secs_f64(0.05)),
+            min_interval: Some(Duration::from_secs_f64(0.02)),
             interval: Some(Duration::from_secs_f64(0.1)),
             allowed_slippage_sec: Some(0.5),
             on_stream_delayed: |current_delay, _total_delay| {
@@ -19,18 +19,10 @@ async fn main() {
             },
         })
         .for_each(|el_no| async move {
-            if el_no == 50 {
-                tokio::time::sleep(Duration::from_secs_f64(3.0)).await;
+            if el_no == 40 {
+                tokio::time::sleep(Duration::from_secs_f64(2.0)).await;
             }
-            //note that after issue is solved, drift goes back to normal
-            //println!(
-            //    "El no {el_no}, Drift: {:.3}s",
-            //    start.elapsed().as_secs_f64() - el_no as f64 * GENERATE_ELEMENT_EVERY_SEC
-            //);
-            println!(
-                "{el_no} {:.3}",
-                start.elapsed().as_secs_f64()
-            );
+            println!("{:.3}", start.elapsed().as_secs_f64());
         })
         .await;
 }

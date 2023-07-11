@@ -1,6 +1,4 @@
-use core::fmt;
 use core::pin::Pin;
-use futures::{stream, StreamExt};
 use futures_core::future::Future;
 use futures_core::ready;
 use futures_core::stream::{FusedStream, Stream};
@@ -11,19 +9,6 @@ use pin_project_lite::pin_project;
 use std::time::Duration;
 use tokio::time::Sleep;
 
-
-pin_project! {
-    /// Stream for the [`then`](super::StreamExt::then) method.
-    #[must_use = "streams do nothing unless polled"]
-    pub struct RateLimit<St, Fut, F> {
-        #[pin]
-        stream: St,
-        #[pin]
-        future: Option<Fut>,
-        options: RateLimitOptions,
-        f: F,
-    }
-}
 
 pin_project! {
     #[must_use = "streams do nothing unless polled"]
@@ -39,22 +24,9 @@ pin_project! {
         item_no: u64,
         first_el_time: std::time::Instant,
         stream_delay: f64,
-
      }
 }
 
-impl<St, Fut, F> fmt::Debug for RateLimit<St, Fut, F>
-where
-    St: fmt::Debug,
-    Fut: fmt::Debug,
-{
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        f.debug_struct("RateLimit")
-            .field("stream", &self.stream)
-            .field("future", &self.future)
-            .finish()
-    }
-}
 
 macro_rules! delegate_access_inner {
     ($field:ident, $inner:ty, ($($ind:tt)*)) => {
@@ -92,26 +64,23 @@ macro_rules! delegate_access_inner {
     }
 }
 
-#[derive(Debug, Clone)]
-pub struct RateLimitOptions {
-    pub interval: Option<Duration>,
+pub enum StreamBehavior {
+    Continue,
+    Delay(f64),
+    Stop,
 }
 
-impl<St, Fut, F> RateLimit<St, Fut, F>
-where
-    St: Stream,
-    F: FnMut(St::Item) -> Fut,
-{
-    pub fn new(stream: St, opt: RateLimitOptions, f: F) -> Self {
-        Self {
-            stream,
-            future: None,
-            f,
-            options: opt,
-        }
-    }
+#[derive(Clone, Default)]
+pub struct RateLimitOptions {
+    ///targeted interval between items
+    pub interval: Option<Duration>,
 
-    delegate_access_inner!(stream, St, ());
+    ///none for default slippage (10 times interval + 0.02 sec)
+    ///f64::max_value() for no slippage at all (stream always wants to catch up after delay)
+    pub allowed_slippage_sec: Option<f64>,
+
+    ///return true if you want
+    pub on_stream_delayed: Option<fn(f64, f64) -> StreamBehavior>,
 }
 
 impl<St> RateLimit2<St>
@@ -133,50 +102,12 @@ impl<St> RateLimit2<St>
     delegate_access_inner!(stream, St, ());
 }
 
-impl<St, Fut, F> FusedStream for RateLimit<St, Fut, F>
+impl<St> FusedStream for RateLimit2<St>
 where
     St: FusedStream,
-    F: FnMut(St::Item) -> Fut,
-    Fut: Future,
 {
     fn is_terminated(&self) -> bool {
         self.future.is_none() && self.stream.is_terminated()
-    }
-}
-
-impl<St, Fut, F> Stream for RateLimit<St, Fut, F>
-where
-    St: Stream,
-    F: FnMut(St::Item) -> Fut,
-    Fut: Future,
-{
-    type Item = Fut::Output;
-
-    fn poll_next(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
-        let mut this = self.project();
-
-        Poll::Ready(loop {
-            if let Some(fut) = this.future.as_mut().as_pin_mut() {
-                let item = ready!(fut.poll(cx));
-                this.future.set(None);
-                break Some(item);
-            } else if let Some(item) = ready!(this.stream.as_mut().poll_next(cx)) {
-                this.future.set(Some((this.f)(item)));
-            } else {
-                break None;
-            }
-        })
-    }
-
-    fn size_hint(&self) -> (usize, Option<usize>) {
-        let future_len = usize::from(self.future.is_some());
-        let (lower, upper) = self.stream.size_hint();
-        let lower = lower.saturating_add(future_len);
-        let upper = match upper {
-            Some(x) => x.checked_add(future_len),
-            None => None,
-        };
-        (lower, upper)
     }
 }
 
@@ -195,7 +126,6 @@ impl<St> Stream for RateLimit2<St>
                 this.future.set(None);
                 break Some(this.item.take().unwrap());
             } else if let Some(item) = ready!(this.stream.as_mut().poll_next(cx)) {
-
                 if *this.item_no == 0 {
                     *this.item_no += 1;
                     *this.first_el_time = std::time::Instant::now();
@@ -205,6 +135,10 @@ impl<St> Stream for RateLimit2<St>
                     const MAX_SLIPPAGE_INTERVALS: f64 = 10.0;
                     const MAX_SLIPPAGE_CONST: f64 = 0.02;
 
+                    let allowed_slippage_secs = this.options.allowed_slippage_sec.unwrap_or(
+                        MAX_SLIPPAGE_INTERVALS * interval.as_secs_f64() + MAX_SLIPPAGE_CONST
+                    );
+
                     let target_time_point =
                         interval.as_secs_f64() * (*this.item_no) as f64 + *this.stream_delay;
                     *this.item_no += 1;
@@ -212,13 +146,20 @@ impl<St> Stream for RateLimit2<St>
                     let elapsed = this.first_el_time.elapsed();
                     let delta = target_time_point - elapsed.as_secs_f64();
                     let wait_time_seconds = if delta > 0.0 { delta } else { 0.0 };
-                    if delta < -(MAX_SLIPPAGE_INTERVALS * interval.as_secs_f64() + MAX_SLIPPAGE_CONST) {
+                    if delta < -(allowed_slippage_secs) {
+                        let current_delay = -delta;
                         // stream is falling behind, add the permanent delay
-                        *this.stream_delay += (-delta);
-                        println!(
-                        "Stream is falling behind, current delay {}s",
-                        this.stream_delay);
-
+                        if let Some(on_stream_delayed) = this.options.on_stream_delayed {
+                            match on_stream_delayed(current_delay, *this.stream_delay + current_delay) {
+                                StreamBehavior::Continue => {}
+                                StreamBehavior::Delay(delay) => {
+                                    *this.stream_delay += delay;
+                                }
+                                StreamBehavior::Stop => break None,
+                            }
+                        } else {
+                            *this.stream_delay += current_delay;
+                        }
                     }
                     if wait_time_seconds > 0.001 {
                         this.future.set(Some(tokio::time::sleep(Duration::from_secs_f64(wait_time_seconds))));
@@ -262,14 +203,6 @@ where
 impl<T: ?Sized> StreamRateLimitExt for T where T: Stream {}
 
 pub trait StreamRateLimitExt: Stream {
-    fn rate_limit<Fut, F>(self, opt: RateLimitOptions, f: F) -> RateLimit<Self, Fut, F>
-    where
-        F: FnMut(Self::Item) -> Fut,
-        Fut: Future,
-        Self: Sized,
-    {
-        assert_stream::<Fut::Output, _>(RateLimit::new(self, opt, f))
-    }
     fn rate_limit2(self, opt: RateLimitOptions) -> RateLimit2<Self>
         where
             Self: Sized,

@@ -6,11 +6,12 @@ mod tests {
     use std::rc::Rc;
     use std::time::Duration;
     use stream_rate_limiter::*;
+    use tokio::time::Instant;
 
     #[tokio::test]
     async fn it_works() {
         let count = stream::iter(0..10)
-            .rate_limit(RateLimitOptions::new(None, None, |_, _| {
+            .rate_limit(RateLimitOptions::new(None, None, None, |_, _| {
                 StreamBehavior::Continue
             }))
             .count()
@@ -23,6 +24,7 @@ mod tests {
         let count = stream::iter(0..10)
             .rate_limit(RateLimitOptions::new(
                 Some(Duration::from_secs_f64(0.01)),
+                None,
                 None,
                 |_, _| StreamBehavior::Continue,
             ))
@@ -37,6 +39,7 @@ mod tests {
         let count = stream::iter(0..10)
             .rate_limit(RateLimitOptions::new(
                 Some(Duration::from_secs_f64(0.01)),
+                None,
                 None,
                 |delta, stream_delay| {
                     total_delay.replace_with(|_| stream_delay + delta);
@@ -60,6 +63,7 @@ mod tests {
             .rate_limit(RateLimitOptions::new(
                 Some(Duration::from_secs_f64(0.01)),
                 None,
+                None,
                 |_delta, stream_delay| {
                     total_delay.replace_with(|_| stream_delay);
                     println!("Stream is delayed {stream_delay:.3}s !!");
@@ -80,6 +84,7 @@ mod tests {
         let count = stream::iter(0..10)
             .rate_limit(RateLimitOptions::new(
                 Some(Duration::from_secs_f64(0.01)),
+                None,
                 Some(10.0),
                 |delta, stream_delay| {
                     total_delay.replace_with(|_| stream_delay + delta);
@@ -93,5 +98,28 @@ mod tests {
         println!("Total delay: {}", *total_delay.borrow());
         assert_eq!(count, 10);
         assert_eq!(*total_delay.borrow(), 0.0);
+    }
+
+    #[tokio::test]
+    async fn it_works6() {
+        let total_delay = Rc::new(RefCell::new(0.0));
+        let instant = Instant::now();
+        let count = stream::iter(0..10)
+            .rate_limit(RateLimitOptions::new(
+                None,
+                Some(Duration::from_secs_f64(0.1)),
+                None,
+                |delta, stream_delay| {
+                    total_delay.replace_with(|_| stream_delay + delta);
+                    println!("Stream is delayed {:.3}s !!", stream_delay + delta);
+                    StreamBehavior::Delay(delta)
+                },
+            ))
+            .count()
+            .await;
+        println!("Total delay: {}", *total_delay.borrow());
+        assert_eq!(count, 10);
+        assert_eq!(*total_delay.borrow(), 0.0);
+        assert!(instant.elapsed().as_secs_f64() > 0.9);
     }
 }

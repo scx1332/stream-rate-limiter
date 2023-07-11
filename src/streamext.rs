@@ -184,15 +184,9 @@ where
         })
     }
 
+    //future is not changing stream size
     fn size_hint(&self) -> (usize, Option<usize>) {
-        let future_len = usize::from(self.future.is_some());
-        let (lower, upper) = self.stream.size_hint();
-        let lower = lower.saturating_add(future_len);
-        let upper = match upper {
-            Some(x) => x.checked_add(future_len),
-            None => None,
-        };
-        (lower, upper)
+        self.stream.size_hint()
     }
 }
 

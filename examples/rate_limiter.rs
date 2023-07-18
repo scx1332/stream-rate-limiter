@@ -13,21 +13,16 @@ async fn main() {
 
     let start = Instant::now();
     let _stream = stream::iter(0..200)
-        .rate_limit(RateLimitOptions {
-            interval: Some(Duration::from_secs_f64(GENERATE_ELEMENT_EVERY_SEC)),
-            min_interval: None,
-            allowed_slippage_sec: Some(1.0),
-            /*on_stream_delayed: |current_delay, total_delay| {
-                let delay_for = current_delay;
-                println!("Stream is delayed {:.3}s !!", total_delay + delay_for);
-                StreamBehavior::Delay(delay_for)
-            },*/
-            on_stream_delayed: Box::new(|current_delay, total_delay| {
-                let delay_for = current_delay;
-                println!("Stream is delayed {:.3}s !!", total_delay + delay_for);
-                StreamBehavior::Delay(delay_for)
-            }),
-        })
+        .rate_limit(
+            RateLimitOptions::default()
+                .with_interval_sec(GENERATE_ELEMENT_EVERY_SEC)
+                .with_allowed_slippage_sec(1.0)
+                .on_stream_delayed(|current_delay, total_delay| {
+                    let delay_for = current_delay;
+                    println!("Stream is delayed {:.3}s !!", total_delay + delay_for);
+                    StreamBehavior::Delay(delay_for)
+                }),
+        )
         .for_each(|el_no| async move {
             if el_no > 50 && el_no < 100 {
                 tokio::time::sleep(Duration::from_secs_f64(DELAY_FOR)).await;

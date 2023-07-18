@@ -116,17 +116,17 @@ where
                     break Some(item);
                 }
                 //if no interval is set, use min_interval instead
-                let interval = if this.options.interval.is_none() {
-                    this.options.min_interval
+                let interval = if this.options.interval().is_none() {
+                    this.options.min_interval()
                 } else {
-                    this.options.interval
+                    this.options.interval()
                 };
 
                 if let Some(interval) = interval {
                     const MAX_SLIPPAGE_INTERVALS: f64 = 10.0;
                     const MAX_SLIPPAGE_CONST: f64 = 0.02;
 
-                    let allowed_slippage_secs = this.options.allowed_slippage_sec.unwrap_or(
+                    let allowed_slippage_secs = this.options.allowed_slippage_sec().unwrap_or(
                         MAX_SLIPPAGE_INTERVALS * interval.as_secs_f64() + MAX_SLIPPAGE_CONST,
                     );
 
@@ -140,7 +140,10 @@ where
                     if delta < -(allowed_slippage_secs) {
                         let current_delay = -delta;
                         //if let Some(on_stream_delayed) = this.options.on_stream_delayed {
-                        match (this.options.on_stream_delayed)(current_delay, *this.stream_delay) {
+                        match this.options.get_on_stream_delayed()(
+                            current_delay,
+                            *this.stream_delay,
+                        ) {
                             StreamBehavior::Continue => {}
                             StreamBehavior::Delay(delay) => {
                                 // stream is falling behind, add the permanent delay
@@ -151,12 +154,12 @@ where
                         //}
                     }
                     //if min interval is set, make sure we wait at least as long as min interval
-                    if let Some(min_interval) = this.options.min_interval {
+                    if let Some(min_interval) = this.options.min_interval() {
                         if min_interval.as_secs_f64() > wait_time_seconds {
                             wait_time_seconds = min_interval.as_secs_f64();
                         }
                     }
-                    if wait_time_seconds > 0.001 || this.options.min_interval.is_some() {
+                    if wait_time_seconds > 0.001 || this.options.min_interval().is_some() {
                         // if min interval is provided wait always, even if it's zero
 
                         this.future

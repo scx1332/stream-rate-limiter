@@ -10,12 +10,15 @@ extern crate stream_rate_limiter;
 async fn main() {
     let start = Instant::now();
     let _stream = stream::iter(0..100)
-        .rate_limit(RateLimitOptions {
-            min_interval: Some(Duration::from_secs_f64(0.02)),
-            interval: Some(Duration::from_secs_f64(0.1)),
-            allowed_slippage_sec: Some(0.5),
-            on_stream_delayed: Box::new(|_current_delay, _total_delay| StreamBehavior::Continue),
-        })
+        .rate_limit(
+            RateLimitOptions::default()
+                .with_min_interval_sec(0.02)
+                .with_interval_sec(0.1)
+                .with_allowed_slippage_sec(0.5)
+                .on_stream_delayed(Box::new(|_current_delay, _total_delay| {
+                    StreamBehavior::Continue
+                })),
+        )
         .for_each(|el_no| async move {
             if el_no == 40 {
                 tokio::time::sleep(Duration::from_secs_f64(2.0)).await;

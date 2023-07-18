@@ -11,7 +11,7 @@ async fn main() {
     let start = Instant::now();
     let _stream = stream::iter(0..100)
         .rate_limit(
-            RateLimitOptions::default()
+            RateLimitOptions::empty()
                 .with_min_interval_sec(0.02)
                 .with_interval_sec(0.1)
                 .with_allowed_slippage_sec(0.5)

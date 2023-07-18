@@ -28,26 +28,30 @@ x axis is element number, y axis is time, element number 40 is simulated to stuc
 When you want to delay stream after hiccup 
 ```rust
 stream::iter(0..100)
-    .rate_limit(RateLimitOptions {
-        min_interval: Some(Duration::from_secs_f64(0.02)),
-        interval: Some(Duration::from_secs_f64(0.1)),
-        allowed_slippage_sec: Some(0.5),
-        on_stream_delayed: |current_delay, _total_delay| {
-            StreamBehavior::Delay(current_delay)
-        },
-    })
+    .rate_limit(
+        RateLimitOptions::empty()
+            .with_min_interval_sec(0.02)
+            .with_interval_sec(0.1)
+            .with_allowed_slippage_sec(0.5)
+            .on_stream_delayed(Box::new(|current_delay, _total_delay| {
+                StreamBehavior::Delay(current_delay)
+            })),
+    )
 ```
 ![alt text](https://github.com/scx1332/stream-rate-limiter/blob/main/docs/chart_1.png?raw=true)
 
 When you want to allow stream to catchup after hiccup (continue option):
 ```rust
 stream::iter(0..100)
-    .rate_limit(RateLimitOptions {
-        min_interval: Some(Duration::from_secs_f64(0.02)),
-        interval: Some(Duration::from_secs_f64(0.1)),
-        allowed_slippage_sec: Some(0.5),
-        on_stream_delayed: |_current_delay, _total_delay| StreamBehavior::Continue,
-        })
+    .rate_limit(
+        RateLimitOptions::empty()
+            .with_min_interval_sec(0.02)
+            .with_interval_sec(0.1)
+            .with_allowed_slippage_sec(0.5)
+            .on_stream_delayed(Box::new(|_current_delay, _total_delay| {
+                StreamBehavior::Continue
+            })),
+    )
 ```
 ![alt text](https://github.com/scx1332/stream-rate-limiter/blob/main/docs/chart_2.png?raw=true)
 
@@ -57,12 +61,15 @@ Note that last element may appear depending on if the delay was before or after 
 This extension (.rate_limit) does not differentiate where hiccups occure.
 ```rust
 stream::iter(0..100)
-    .rate_limit(RateLimitOptions {
-        min_interval: Some(Duration::from_secs_f64(0.02)),
-        interval: Some(Duration::from_secs_f64(0.1)),
-        allowed_slippage_sec: Some(0.5),
-        on_stream_delayed: |_current_delay, _total_delay| StreamBehavior::Stop,
-        })
+.rate_limit(
+    RateLimitOptions::empty()
+        .with_min_interval_sec(0.02)
+        .with_interval_sec(0.1)
+        .with_allowed_slippage_sec(0.5)
+        .on_stream_delayed(Box::new(|_current_delay, _total_delay| {
+            StreamBehavior::Stop
+        })),
+    )
 ```
 ![alt text](https://github.com/scx1332/stream-rate-limiter/blob/main/docs/chart_3.png?raw=true)
 

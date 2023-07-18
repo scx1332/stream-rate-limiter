@@ -1,6 +1,6 @@
 [package]
 name = "stream-rate-limiter"
-version = "0.2.1"
+version = "0.2.2"
 edition = "2021"
 authors = ["scx1332 <[email protected]>"]
 description = "A rate limiter for Tokio streams"

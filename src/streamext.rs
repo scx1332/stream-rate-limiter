@@ -116,17 +116,17 @@ where
                     break Some(item);
                 }
                 //if no interval is set, use min_interval instead
-                let interval = if this.options.interval().is_none() {
-                    this.options.min_interval()
+                let interval = if this.options.interval.is_none() {
+                    this.options.min_interval
                 } else {
-                    this.options.interval()
+                    this.options.interval
                 };
 
                 if let Some(interval) = interval {
                     const MAX_SLIPPAGE_INTERVALS: f64 = 10.0;
                     const MAX_SLIPPAGE_CONST: f64 = 0.02;
 
-                    let allowed_slippage_secs = this.options.allowed_slippage_sec().unwrap_or(
+                    let allowed_slippage_secs = this.options.allowed_slippage_sec.unwrap_or(
                         MAX_SLIPPAGE_INTERVALS * interval.as_secs_f64() + MAX_SLIPPAGE_CONST,
                     );
 
@@ -139,27 +139,31 @@ where
                     let mut wait_time_seconds = if delta > 0.0 { delta } else { 0.0 };
                     if delta < -(allowed_slippage_secs) {
                         let current_delay = -delta;
-                        //if let Some(on_stream_delayed) = this.options.on_stream_delayed {
-                        match this.options.get_on_stream_delayed()(
-                            current_delay,
-                            *this.stream_delay,
-                        ) {
-                            StreamBehavior::Continue => {}
-                            StreamBehavior::Delay(delay) => {
-                                // stream is falling behind, add the permanent delay
-                                *this.stream_delay += delay;
+                        if let Some(on_stream_delayed) = this.options.on_stream_delayed.as_mut() {
+                            match on_stream_delayed(
+                                current_delay,
+                                *this.stream_delay,
+                            ) {
+                                StreamBehavior::Continue => {}
+                                StreamBehavior::Delay(delay) => {
+                                    // stream is falling behind, add the permanent delay
+                                    *this.stream_delay += delay;
+                                }
+                                StreamBehavior::Stop => break None,
                             }
-                            StreamBehavior::Stop => break None,
+                            //}
+                        } else {
+                            // stream is falling behind, add the permanent delay
+                            *this.stream_delay += current_delay;
                         }
-                        //}
                     }
                     //if min interval is set, make sure we wait at least as long as min interval
-                    if let Some(min_interval) = this.options.min_interval() {
+                    if let Some(min_interval) = this.options.min_interval {
                         if min_interval.as_secs_f64() > wait_time_seconds {
                             wait_time_seconds = min_interval.as_secs_f64();
                         }
                     }
-                    if wait_time_seconds > 0.001 || this.options.min_interval().is_some() {
+                    if wait_time_seconds > 0.001 || this.options.min_interval.is_some() {
                         // if min interval is provided wait always, even if it's zero
 
                         this.future
@@ -204,7 +208,9 @@ where
 
 impl<T: ?Sized> StreamRateLimitExt for T where T: Stream {}
 
+/// import this trait to use `rate_limit` method on streams implementing `futures_core::stream::Stream`
 pub trait StreamRateLimitExt: Stream {
+    /// Rate limits the stream, behaviour depends on `RateLimitOptions` passed as argument
     fn rate_limit(self, opt: RateLimitOptions) -> RateLimit<Self>
     where
         Self: Sized,

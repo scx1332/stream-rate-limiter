@@ -14,7 +14,7 @@ async fn main() {
     let start = Instant::now();
     let _stream = stream::iter(0..200)
         .rate_limit(
-            RateLimitOptions::default()
+            RateLimitOptions::empty()
                 .with_interval_sec(GENERATE_ELEMENT_EVERY_SEC)
                 .with_allowed_slippage_sec(1.0)
                 .on_stream_delayed(|current_delay, total_delay| {

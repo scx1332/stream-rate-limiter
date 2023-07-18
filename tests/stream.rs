@@ -11,7 +11,7 @@ mod tests {
     #[tokio::test]
     async fn it_works() {
         let count = stream::iter(0..10)
-            .rate_limit(RateLimitOptions::default())
+            .rate_limit(RateLimitOptions::empty())
             .count()
             .await;
         assert_eq!(count, 10);
@@ -20,7 +20,7 @@ mod tests {
     #[tokio::test]
     async fn it_works2() {
         let count = stream::iter(0..10)
-            .rate_limit(RateLimitOptions::default().with_interval_sec(0.01))
+            .rate_limit(RateLimitOptions::empty().with_interval_sec(0.01))
             .count()
             .await;
         assert_eq!(count, 10);
@@ -31,7 +31,7 @@ mod tests {
         let total_delay = Rc::new(RefCell::new(0.0));
         let count = stream::iter(0..10)
             .rate_limit(
-                RateLimitOptions::default()
+                RateLimitOptions::empty()
                     .with_interval_sec(0.01)
                     .on_stream_delayed(|delta, stream_delay| {
                         total_delay.replace_with(|_| stream_delay + delta);
@@ -53,7 +53,7 @@ mod tests {
         let total_delay = Rc::new(RefCell::new(0.0));
         let count = stream::iter(0..10)
             .rate_limit(
-                RateLimitOptions::default()
+                RateLimitOptions::empty()
                     .with_interval_sec(0.01)
                     .on_stream_delayed(&mut |_delta, stream_delay| {
                         total_delay.replace_with(|_| stream_delay);
@@ -74,7 +74,7 @@ mod tests {
         let total_delay = Rc::new(RefCell::new(0.0));
         let count = stream::iter(0..10)
             .rate_limit(
-                RateLimitOptions::default()
+                RateLimitOptions::empty()
                     .with_interval_sec(0.01)
                     .with_allowed_slippage_sec(10.0)
                     .on_stream_delayed(&mut |delta, stream_delay| {
@@ -97,7 +97,7 @@ mod tests {
         let instant = Instant::now();
         let count = stream::iter(0..10)
             .rate_limit(
-                RateLimitOptions::default()
+                RateLimitOptions::empty()
                     .with_min_interval_sec(0.1)
                     .on_stream_delayed(&mut |delta, stream_delay| {
                         total_delay.replace_with(|_| stream_delay + delta);

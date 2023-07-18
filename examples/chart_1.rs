@@ -17,9 +17,9 @@ async fn main() {
             /*on_stream_delayed: |current_delay, _total_delay| {
                 StreamBehavior::Delay(current_delay)
             },*/
-            on_stream_delayed: &mut |current_delay, _total_delay| {
+            on_stream_delayed: Box::new(|current_delay, _total_delay| {
                 StreamBehavior::Delay(current_delay)
-            },
+            }),
         })
         .for_each(|el_no| async move {
             if el_no == 40 {

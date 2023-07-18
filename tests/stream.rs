@@ -41,7 +41,7 @@ mod tests {
                 Some(Duration::from_secs_f64(0.01)),
                 None,
                 None,
-                &mut |delta, stream_delay| {
+                |delta, stream_delay| {
                     total_delay.replace_with(|_| stream_delay + delta);
                     println!("Stream is delayed {:.3}s !!", stream_delay + delta);
                     StreamBehavior::Delay(delta)

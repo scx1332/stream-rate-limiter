@@ -22,11 +22,11 @@ async fn main() {
                 println!("Stream is delayed {:.3}s !!", total_delay + delay_for);
                 StreamBehavior::Delay(delay_for)
             },*/
-            on_stream_delayed: &mut |current_delay, total_delay| {
+            on_stream_delayed: Box::new(|current_delay, total_delay| {
                 let delay_for = current_delay;
                 println!("Stream is delayed {:.3}s !!", total_delay + delay_for);
                 StreamBehavior::Delay(delay_for)
-            },
+            }),
         })
         .for_each(|el_no| async move {
             if el_no > 50 && el_no < 100 {

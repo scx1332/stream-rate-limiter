@@ -9,11 +9,7 @@ pub enum StreamBehavior {
     Stop,
 }
 
-#[derive(Clone, Default)]
-pub struct RateLimitOptions<G>
-where
-    G: FnMut(f64, f64) -> StreamBehavior,
-{
+pub struct RateLimitOptions<'a> {
     ///targeted interval between items
     pub interval: Option<Duration>,
 
@@ -29,18 +25,15 @@ where
     ///return StreamBehavior::Stop to stop stream (terminate without error)
     ///return StreamBehavior::Continue to continue stream (trying catching up)
     ///First argument is current delay, second is permanent delay already in the stream
-    pub on_stream_delayed: G,
+    pub on_stream_delayed: &'a mut dyn FnMut(f64, f64) -> StreamBehavior,
 }
 
-impl<G> RateLimitOptions<G>
-where
-    G: FnMut(f64, f64) -> StreamBehavior,
-{
+impl<'a> RateLimitOptions<'a> {
     pub fn new(
         interval: Option<Duration>,
         min_interval: Option<Duration>,
         allowed_slippage_sec: Option<f64>,
-        on_stream_delayed: G,
+        on_stream_delayed: &'a mut dyn FnMut(f64, f64) -> StreamBehavior,
     ) -> Self {
         Self {
             interval,

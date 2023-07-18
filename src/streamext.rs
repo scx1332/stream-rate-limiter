@@ -13,13 +13,12 @@ use tokio::time::Sleep;
 
 pin_project! {
     #[must_use = "streams do nothing unless polled"]
-    pub struct RateLimit<St, G>
+    pub struct RateLimit<'a, St>
     where St: Stream,
-    G: FnMut(f64, f64) -> StreamBehavior
     {
         #[pin]
         stream: St,
-        options: RateLimitOptions<G>,
+        options: RateLimitOptions<'a>,
         #[pin]
         future: Option<Sleep>,
         item: Option<St::Item>,
@@ -65,12 +64,11 @@ macro_rules! delegate_access_inner {
     }
 }
 
-impl<St, G> RateLimit<St, G>
+impl<'a, St> RateLimit<'a, St>
 where
     St: Stream,
-    G: FnMut(f64, f64) -> StreamBehavior,
 {
-    pub fn new(stream: St, opt: RateLimitOptions<G>) -> Self {
+    pub fn new(stream: St, opt: RateLimitOptions<'a>) -> Self {
         Self {
             stream,
             options: opt,
@@ -85,20 +83,18 @@ where
     delegate_access_inner!(stream, St, ());
 }
 
-impl<St, G> FusedStream for RateLimit<St, G>
+impl<'a, St> FusedStream for RateLimit<'a, St>
 where
     St: FusedStream,
-    G: FnMut(f64, f64) -> StreamBehavior,
 {
     fn is_terminated(&self) -> bool {
         self.future.is_none() && self.stream.is_terminated()
     }
 }
 
-impl<St, G> Stream for RateLimit<St, G>
+impl<'a, St> Stream for RateLimit<'a, St>
 where
     St: Stream,
-    G: FnMut(f64, f64) -> StreamBehavior,
 {
     type Item = St::Item;
 
@@ -143,6 +139,7 @@ where
                     let mut wait_time_seconds = if delta > 0.0 { delta } else { 0.0 };
                     if delta < -(allowed_slippage_secs) {
                         let current_delay = -delta;
+                        //if let Some(on_stream_delayed) = this.options.on_stream_delayed {
                         match (this.options.on_stream_delayed)(current_delay, *this.stream_delay) {
                             StreamBehavior::Continue => {}
                             StreamBehavior::Delay(delay) => {
@@ -151,6 +148,7 @@ where
                             }
                             StreamBehavior::Stop => break None,
                         }
+                        //}
                     }
                     //if min interval is set, make sure we wait at least as long as min interval
                     if let Some(min_interval) = this.options.min_interval {
@@ -201,18 +199,12 @@ where
     delegate_sink!(stream, Item);
 }
 
-impl<T: ?Sized, G> StreamRateLimitExt<G> for T
-where
-    T: Stream,
-    G: FnMut(f64, f64) -> StreamBehavior,
-{
-}
+impl<T: ?Sized> StreamRateLimitExt for T where T: Stream {}
 
-pub trait StreamRateLimitExt<G>: Stream {
-    fn rate_limit(self, opt: RateLimitOptions<G>) -> RateLimit<Self, G>
+pub trait StreamRateLimitExt: Stream {
+    fn rate_limit(self, opt: RateLimitOptions) -> RateLimit<Self>
     where
         Self: Sized,
-        G: FnMut(f64, f64) -> StreamBehavior,
     {
         assert_stream::<Self::Item, _>(RateLimit::new(self, opt))
     }

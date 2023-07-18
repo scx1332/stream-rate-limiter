@@ -17,7 +17,12 @@ async fn main() {
             interval: Some(Duration::from_secs_f64(GENERATE_ELEMENT_EVERY_SEC)),
             min_interval: None,
             allowed_slippage_sec: Some(1.0),
-            on_stream_delayed: |current_delay, total_delay| {
+            /*on_stream_delayed: |current_delay, total_delay| {
+                let delay_for = current_delay;
+                println!("Stream is delayed {:.3}s !!", total_delay + delay_for);
+                StreamBehavior::Delay(delay_for)
+            },*/
+            on_stream_delayed: &mut |current_delay, total_delay| {
                 let delay_for = current_delay;
                 println!("Stream is delayed {:.3}s !!", total_delay + delay_for);
                 StreamBehavior::Delay(delay_for)

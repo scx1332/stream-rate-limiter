@@ -11,7 +11,7 @@ mod tests {
     #[tokio::test]
     async fn it_works() {
         let count = stream::iter(0..10)
-            .rate_limit(RateLimitOptions::new(None, None, None, |_, _| {
+            .rate_limit(RateLimitOptions::new(None, None, None, &mut |_, _| {
                 StreamBehavior::Continue
             }))
             .count()
@@ -26,7 +26,7 @@ mod tests {
                 Some(Duration::from_secs_f64(0.01)),
                 None,
                 None,
-                |_, _| StreamBehavior::Continue,
+                &mut |_, _| StreamBehavior::Continue,
             ))
             .count()
             .await;
@@ -41,7 +41,7 @@ mod tests {
                 Some(Duration::from_secs_f64(0.01)),
                 None,
                 None,
-                |delta, stream_delay| {
+                &mut |delta, stream_delay| {
                     total_delay.replace_with(|_| stream_delay + delta);
                     println!("Stream is delayed {:.3}s !!", stream_delay + delta);
                     StreamBehavior::Delay(delta)
@@ -64,7 +64,7 @@ mod tests {
                 Some(Duration::from_secs_f64(0.01)),
                 None,
                 None,
-                |_delta, stream_delay| {
+                &mut |_delta, stream_delay| {
                     total_delay.replace_with(|_| stream_delay);
                     println!("Stream is delayed {stream_delay:.3}s !!");
                     StreamBehavior::Continue
@@ -86,7 +86,7 @@ mod tests {
                 Some(Duration::from_secs_f64(0.01)),
                 None,
                 Some(10.0),
-                |delta, stream_delay| {
+                &mut |delta, stream_delay| {
                     total_delay.replace_with(|_| stream_delay + delta);
                     println!("Stream is delayed {:.3}s !!", stream_delay + delta);
                     StreamBehavior::Delay(delta)
@@ -109,7 +109,7 @@ mod tests {
                 None,
                 Some(Duration::from_secs_f64(0.1)),
                 None,
-                |delta, stream_delay| {
+                &mut |delta, stream_delay| {
                     total_delay.replace_with(|_| stream_delay + delta);
                     println!("Stream is delayed {:.3}s !!", stream_delay + delta);
                     StreamBehavior::Delay(delta)

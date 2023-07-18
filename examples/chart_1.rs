@@ -14,7 +14,10 @@ async fn main() {
             min_interval: Some(Duration::from_secs_f64(0.02)),
             interval: Some(Duration::from_secs_f64(0.1)),
             allowed_slippage_sec: Some(0.5),
-            on_stream_delayed: |current_delay, _total_delay| {
+            /*on_stream_delayed: |current_delay, _total_delay| {
+                StreamBehavior::Delay(current_delay)
+            },*/
+            on_stream_delayed: &mut |current_delay, _total_delay| {
                 StreamBehavior::Delay(current_delay)
             },
         })

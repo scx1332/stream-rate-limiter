@@ -1,6 +1,16 @@
 use std::time::Duration;
 
 /// What to do with stream when it is delayed, returned in callback on_stream_delayed
+pub struct StreamDelayedInfo {
+    /// Number of element counted from the start of the stream
+    pub element_no: u64,
+    /// Current delay (in seconds)
+    pub current_delay: f64,
+    /// Total stream delay in seconds up to now (in seconds)
+    pub total_delay: f64,
+}
+
+/// What to do with stream when it is delayed, returned in callback on_stream_delayed
 pub enum StreamBehavior {
     ///Do not add delay to the stream, stream will try to catch up
     Continue,
@@ -12,10 +22,10 @@ pub enum StreamBehavior {
 
 /// Options to be used with rate_limit stream extension method
 pub struct RateLimitOptions<'a> {
-    pub (crate) interval: Option<Duration>,
-    pub (crate) min_interval: Option<Duration>,
-    pub (crate) allowed_slippage_sec: Option<f64>,
-    pub (crate) on_stream_delayed: Option<Box<dyn FnMut(f64, f64) -> StreamBehavior + 'a>>,
+    pub(crate) interval: Option<Duration>,
+    pub(crate) min_interval: Option<Duration>,
+    pub(crate) allowed_slippage_sec: Option<f64>,
+    pub(crate) on_stream_delayed: Option<Box<dyn FnMut(StreamDelayedInfo) -> StreamBehavior + 'a>>,
 }
 
 impl<'a> RateLimitOptions<'a> {
@@ -67,7 +77,7 @@ impl<'a> RateLimitOptions<'a> {
     ///First argument is current delay, second is permanent delay already in the stream
     pub fn on_stream_delayed(
         mut self,
-        on_stream_delayed: impl FnMut(f64, f64) -> StreamBehavior + 'a,
+        on_stream_delayed: impl FnMut(StreamDelayedInfo) -> StreamBehavior + 'a,
     ) -> Self {
         self.on_stream_delayed = Some(Box::new(on_stream_delayed));
         self

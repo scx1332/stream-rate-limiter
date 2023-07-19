@@ -15,9 +15,7 @@ async fn main() {
                 .with_min_interval_sec(0.02)
                 .with_interval_sec(0.1)
                 .with_allowed_slippage_sec(0.5)
-                .on_stream_delayed(Box::new(|_current_delay, _total_delay| {
-                    StreamBehavior::Continue
-                })),
+                .on_stream_delayed(|_sdi| StreamBehavior::Continue),
         )
         .for_each(|el_no| async move {
             if el_no == 40 {

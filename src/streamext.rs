@@ -1,5 +1,5 @@
-use crate::options::RateLimitOptions;
 use crate::options::StreamBehavior;
+use crate::options::{RateLimitOptions, StreamDelayedInfo};
 use core::pin::Pin;
 use futures_core::future::Future;
 use futures_core::ready;
@@ -140,10 +140,11 @@ where
                     if delta < -(allowed_slippage_secs) {
                         let current_delay = -delta;
                         if let Some(on_stream_delayed) = this.options.on_stream_delayed.as_mut() {
-                            match on_stream_delayed(
+                            match on_stream_delayed(StreamDelayedInfo {
                                 current_delay,
-                                *this.stream_delay,
-                            ) {
+                                total_delay: *this.stream_delay,
+                                element_no: (*this.item_no),
+                            }) {
                                 StreamBehavior::Continue => {}
                                 StreamBehavior::Delay(delay) => {
                                     // stream is falling behind, add the permanent delay

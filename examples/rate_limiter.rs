@@ -17,9 +17,13 @@ async fn main() {
             RateLimitOptions::empty()
                 .with_interval_sec(GENERATE_ELEMENT_EVERY_SEC)
                 .with_allowed_slippage_sec(1.0)
-                .on_stream_delayed(|current_delay, total_delay| {
-                    let delay_for = current_delay;
-                    println!("Stream is delayed {:.3}s !!", total_delay + delay_for);
+                .on_stream_delayed(|sdi| {
+                    let delay_for = sdi.current_delay;
+                    println!(
+                        "Stream is delayed {:.3}s on el {}!!",
+                        sdi.total_delay + delay_for,
+                        sdi.element_no
+                    );
                     StreamBehavior::Delay(delay_for)
                 }),
         )

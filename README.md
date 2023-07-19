@@ -2,7 +2,7 @@
 
 Stream combinator
 
-.rate_limiter(...)
+.rate_limiter(opt: RateLimitOptions)
 
 Provides way to limit stream element rate with constant intervals. 
 It adds some level of customization in case of stream delays 
@@ -30,12 +30,10 @@ When you want to delay stream after hiccup
 stream::iter(0..100)
     .rate_limit(
         RateLimitOptions::empty()
-            .with_min_interval_sec(0.02)
-            .with_interval_sec(0.1)
-            .with_allowed_slippage_sec(0.5)
-            .on_stream_delayed(Box::new(|current_delay, _total_delay| {
-                StreamBehavior::Delay(current_delay)
-            })),
+        .with_min_interval_sec(0.02)
+        .with_interval_sec(0.1)
+        .with_allowed_slippage_sec(0.5)
+        .on_stream_delayed(|sdi| StreamBehavior::Delay(sdi.current_delay)),
     )
 ```
 ![alt text](https://github.com/scx1332/stream-rate-limiter/blob/main/docs/chart_1.png?raw=true)
@@ -48,9 +46,7 @@ stream::iter(0..100)
             .with_min_interval_sec(0.02)
             .with_interval_sec(0.1)
             .with_allowed_slippage_sec(0.5)
-            .on_stream_delayed(Box::new(|_current_delay, _total_delay| {
-                StreamBehavior::Continue
-            })),
+            .on_stream_delayed(|_sdi| StreamBehavior::Continue),
     )
 ```
 ![alt text](https://github.com/scx1332/stream-rate-limiter/blob/main/docs/chart_2.png?raw=true)
@@ -66,9 +62,7 @@ stream::iter(0..100)
         .with_min_interval_sec(0.02)
         .with_interval_sec(0.1)
         .with_allowed_slippage_sec(0.5)
-        .on_stream_delayed(Box::new(|_current_delay, _total_delay| {
-            StreamBehavior::Stop
-        })),
+        .on_stream_delayed(|_sdi| StreamBehavior::Stop),
     )
 ```
 ![alt text](https://github.com/scx1332/stream-rate-limiter/blob/main/docs/chart_3.png?raw=true)

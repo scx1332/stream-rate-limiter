@@ -16,3 +16,4 @@ tokio = { version = "1", features = ["time"] }
 futures = "0.3"
 tokio-stream = { version = "0.1.8", features = ["time"] }
 tokio = { version = "1", features = ["time", "macros", "rt-multi-thread"] }
+plotly = { version = "0.8.3" }

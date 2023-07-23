@@ -27,7 +27,7 @@ x axis is element number, y axis is time, element number 40 is simulated to stuc
 
 When you want to delay stream after hiccup 
 ```rust
-stream::iter(0..100)
+stream::iter(0..101)
     .rate_limit(
         RateLimitOptions::empty()
         .with_min_interval_sec(0.02)
@@ -40,7 +40,7 @@ stream::iter(0..100)
 
 When you want to allow stream to catchup after hiccup (continue option):
 ```rust
-stream::iter(0..100)
+stream::iter(0..101)
     .rate_limit(
         RateLimitOptions::empty()
             .with_min_interval_sec(0.02)
@@ -56,7 +56,7 @@ When you want to stop stream after hiccup (stop option):
 Note that last element may appear depending on if the delay was before or after rate_limit. Hiccups may occur on any side of the stream. 
 This extension (.rate_limit) does not differentiate where hiccups occure.
 ```rust
-stream::iter(0..100)
+stream::iter(0..101)
 .rate_limit(
     RateLimitOptions::empty()
         .with_min_interval_sec(0.02)

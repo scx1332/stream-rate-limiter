@@ -20,7 +20,6 @@ async fn main() {
     let plot_x = Rc::new(RefCell::new(vec![]));
     let plot_y = Rc::new(RefCell::new(vec![]));
 
-    let stream_delay = Rc::new(RefCell::new(0.0));
     let _plot_x = plot_x.clone();
     let _plot_y = plot_y.clone();
     let _stream = stream::iter(0..101)
@@ -29,10 +28,7 @@ async fn main() {
                 .with_min_interval_sec(0.02)
                 .with_interval_sec(0.1)
                 .with_allowed_slippage_sec(0.5)
-                .on_stream_delayed(|sdi| {
-                    stream_delay.replace(sdi.current_delay + sdi.total_delay);
-                    StreamBehavior::Delay(sdi.current_delay)
-                }),
+                .on_stream_delayed(|sdi| StreamBehavior::Delay(sdi.current_delay)),
         )
         .for_each(move |el_no| {
             let plot_x = _plot_x.clone();
@@ -86,10 +82,7 @@ async fn main() {
     };
 
     let trace3 = {
-        let plot_y = plot_x
-            .iter()
-            .map(|el| *el as f64 * 0.1 + *stream_delay.borrow())
-            .collect();
+        let plot_y = plot_x.iter().map(|el| *el as f64 * 0.1 + 1.9).collect();
         Scatter::new(plot_x, plot_y)
             .mode(Mode::Lines)
             .line(Line::new().color(Rgb::new(155, 155, 155)))

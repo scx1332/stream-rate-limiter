@@ -20,7 +20,6 @@ async fn main() {
     let plot_x = Rc::new(RefCell::new(vec![]));
     let plot_y = Rc::new(RefCell::new(vec![]));
 
-    let stream_delay = Rc::new(RefCell::new(0.0));
     let _plot_x = plot_x.clone();
     let _plot_y = plot_y.clone();
     let _stream = stream::iter(0..101)
@@ -76,26 +75,14 @@ async fn main() {
 
     let trace2 = {
         let plot_y = plot_x.iter().map(|el| *el as f64 * 0.1).collect();
-        Scatter::new(plot_x.clone(), plot_y)
+        Scatter::new(plot_x, plot_y)
             .mode(Mode::Lines)
             .line(Line::new().color(Rgb::new(155, 155, 155)))
             .text("Ideal no delay")
     };
 
-    let trace3 = {
-        let plot_y = plot_x
-            .iter()
-            .map(|el| *el as f64 * 0.1 + *stream_delay.borrow())
-            .collect();
-        Scatter::new(plot_x, plot_y)
-            .mode(Mode::Lines)
-            .line(Line::new().color(Rgb::new(155, 155, 155)))
-            .text("Ideal including delay")
-    };
-
     plot.set_layout(layout);
     plot.add_trace(trace2);
-    plot.add_trace(trace3);
     plot.add_trace(trace);
 
     let mut file = File::create("chart_2.html").unwrap();

@@ -25,7 +25,8 @@ pub struct RateLimitOptions<'a> {
     pub(crate) interval: Option<Duration>,
     pub(crate) min_interval: Option<Duration>,
     pub(crate) allowed_slippage_sec: Option<f64>,
-    pub(crate) on_stream_delayed: Option<Box<dyn FnMut(StreamDelayedInfo) -> StreamBehavior + 'a>>,
+    pub(crate) on_stream_delayed:
+        Option<Box<dyn FnMut(StreamDelayedInfo) -> StreamBehavior + Send + 'a>>,
 }
 
 impl<'a> RateLimitOptions<'a> {
@@ -77,7 +78,7 @@ impl<'a> RateLimitOptions<'a> {
     ///First argument is current delay, second is permanent delay already in the stream
     pub fn on_stream_delayed(
         mut self,
-        on_stream_delayed: impl FnMut(StreamDelayedInfo) -> StreamBehavior + 'a,
+        on_stream_delayed: impl FnMut(StreamDelayedInfo) -> StreamBehavior + 'a + std::marker::Send,
     ) -> Self {
         self.on_stream_delayed = Some(Box::new(on_stream_delayed));
         self
